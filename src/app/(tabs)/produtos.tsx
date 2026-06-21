@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -20,6 +19,7 @@ import { Button, Pill } from '@/components/ui';
 import { Sparkline } from '@/components/Charts';
 import { colors, fontFamily, fontSize, radius, spacing } from '@/theme';
 import { formatBRL, parsePrice } from '@/lib/format';
+import { confirmDialog } from '@/lib/dialog';
 import { CATEGORIES, unitLabel, type Product, type Unit } from '@/types';
 
 const DEFAULT_PACKS = [4, 6, 12];
@@ -100,17 +100,16 @@ export default function ProdutosScreen() {
   }
 
   function confirmDelete(p: Product) {
-    Alert.alert('Excluir produto', `Remover “${p.name}” do catálogo?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-        onPress: () => {
-          removeProduct(p.id);
-          setModalOpen(false);
-        },
+    confirmDialog({
+      title: 'Excluir produto',
+      message: `Remover “${p.name}” do catálogo?`,
+      confirmText: 'Excluir',
+      destructive: true,
+      onConfirm: () => {
+        removeProduct(p.id);
+        setModalOpen(false);
       },
-    ]);
+    });
   }
 
   return (

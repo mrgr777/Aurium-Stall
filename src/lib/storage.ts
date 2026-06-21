@@ -39,6 +39,7 @@ export async function loadData(userId: string): Promise<UserData> {
       products: parsed.products ?? [],
       activeList: parsed.activeList ?? [],
       purchases: parsed.purchases ?? [],
+      seeded: parsed.seeded ?? false,
     };
   } catch {
     return { ...EMPTY_DATA };

@@ -71,6 +71,8 @@ export type UserData = {
   products: Product[];
   activeList: ListItem[];
   purchases: Purchase[];
+  /** Indica que o catálogo comum inicial já foi aplicado a esta conta. */
+  seeded?: boolean;
 };
 
 export const CATEGORIES = [

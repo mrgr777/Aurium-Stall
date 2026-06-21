@@ -24,12 +24,16 @@ type ProductInput = {
   price?: number | null;
 };
 
-/** Garante que o catálogo nunca fique vazio: se estiver, carrega o inicial. */
-function withSeed(data: UserData): UserData {
-  if (data.products.length === 0) {
-    return { ...data, products: makeSeedProducts() };
-  }
-  return data;
+/**
+ * Aplica o catálogo comum inicial UMA vez por conta (mesmo que já existam
+ * alguns produtos): adiciona os itens comuns que ainda não estão no catálogo
+ * e marca a conta como "semeada".
+ */
+function ensureSeeded(data: UserData): UserData {
+  if (data.seeded) return data;
+  const existing = new Set(data.products.map((p) => p.name.toLowerCase()));
+  const toAdd = makeSeedProducts().filter((p) => !existing.has(p.name.toLowerCase()));
+  return { ...data, products: [...data.products, ...toAdd], seeded: true };
 }
 
 type AppState = {
@@ -85,7 +89,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const found = users.find((u) => u.id === sessionId) ?? null;
         if (found) {
           setUser(found);
-          setData(withSeed(await storage.loadData(found.id)));
+          setData(ensureSeeded(await storage.loadData(found.id)));
         }
       }
       setReady(true);
@@ -127,6 +131,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       products: makeSeedProducts(),
       activeList: [],
       purchases: [],
+      seeded: true,
     };
     await storage.saveData(newUser.id, seeded);
     setUser(newUser);
@@ -141,7 +146,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (found.pin !== pin) return { ok: false, error: 'PIN incorreto.' };
     await storage.saveSession(found.id);
     setUser(found);
-    setData(withSeed(await storage.loadData(found.id)));
+    setData(ensureSeeded(await storage.loadData(found.id)));
     return { ok: true };
   }, []);
 

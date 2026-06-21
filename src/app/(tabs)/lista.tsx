@@ -1,13 +1,5 @@
 import { useMemo, useState } from 'react';
-import {
-  Alert,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +7,7 @@ import { useApp } from '@/context/AppContext';
 import { Button } from '@/components/ui';
 import { colors, fontFamily, fontSize, radius, spacing } from '@/theme';
 import { formatBRL, parsePrice } from '@/lib/format';
+import { alertDialog, confirmDialog } from '@/lib/dialog';
 import type { ListItem } from '@/types';
 
 /** Texto da quantidade conforme a unidade. */
@@ -87,17 +80,20 @@ export default function ListaScreen() {
   function handleFinalize() {
     const res = finalizePurchase();
     if (!res.ok) {
-      Alert.alert('Ops', res.error ?? 'Não foi possível finalizar.');
+      alertDialog('Ops', res.error ?? 'Não foi possível finalizar.');
       return;
     }
-    Alert.alert('Compra finalizada! 🎉', 'Os preços foram salvos no seu histórico.');
+    alertDialog('Compra finalizada! 🎉', 'Os preços foram salvos no seu histórico.');
   }
 
   function confirmClear() {
-    Alert.alert('Limpar lista', 'Remover todos os itens da lista atual?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Limpar', style: 'destructive', onPress: clearList },
-    ]);
+    confirmDialog({
+      title: 'Limpar lista',
+      message: 'Remover todos os itens da lista atual?',
+      confirmText: 'Limpar',
+      destructive: true,
+      onConfirm: clearList,
+    });
   }
 
   return (
