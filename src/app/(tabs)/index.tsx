@@ -1,0 +1,358 @@
+import { useMemo, useState } from 'react';
+import {
+  Alert,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useApp } from '@/context/AppContext';
+import { Button } from '@/components/ui';
+import { colors, fontSize, radius, spacing } from '@/theme';
+import { formatBRL, parsePrice } from '@/lib/format';
+import type { ListItem } from '@/types';
+
+export default function ListaScreen() {
+  const {
+    user,
+    products,
+    activeList,
+    addToList,
+    addNewToList,
+    updateListItem,
+    removeListItem,
+    toggleChecked,
+    finalizePurchase,
+    clearList,
+  } = useApp();
+  const insets = useSafeAreaInsets();
+  const [query, setQuery] = useState('');
+
+  const suggestions = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    const inList = new Set(activeList.map((i) => i.productId));
+    return products
+      .filter((p) => !inList.has(p.id) && p.name.toLowerCase().includes(q))
+      .slice(0, 6);
+  }, [query, products, activeList]);
+
+  const exactMatch = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return products.some((p) => p.name.toLowerCase() === q);
+  }, [query, products]);
+
+  const cartItems = activeList.filter((i) => i.checked);
+  const cartTotal = cartItems.reduce((s, i) => s + i.qty * i.unitPrice, 0);
+  const estimatedTotal = activeList.reduce((s, i) => s + i.qty * i.unitPrice, 0);
+
+  function handleCreate() {
+    const name = query.trim();
+    if (name.length < 2) return;
+    addNewToList(name, 'Outros', null);
+    setQuery('');
+  }
+
+  function handleFinalize() {
+    const res = finalizePurchase();
+    if (!res.ok) {
+      Alert.alert('Ops', res.error ?? 'Não foi possível finalizar.');
+      return;
+    }
+    Alert.alert('Compra finalizada! 🎉', 'Os preços foram salvos no seu histórico.');
+  }
+
+  function confirmClear() {
+    Alert.alert('Limpar lista', 'Remover todos os itens da lista atual?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Limpar', style: 'destructive', onPress: clearList },
+    ]);
+  }
+
+  return (
+    <View style={[styles.screen, { paddingTop: insets.top + spacing.md }]}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.greeting}>Olá, {user?.name} 👋</Text>
+          <Text style={styles.headerTitle}>Lista de compras</Text>
+        </View>
+        {activeList.length > 0 ? (
+          <Pressable onPress={confirmClear} hitSlop={10}>
+            <Ionicons name="trash-outline" size={22} color={colors.textMuted} />
+          </Pressable>
+        ) : null}
+      </View>
+
+      {/* Adicionar item */}
+      <View style={styles.addRow}>
+        <Ionicons name="add-circle" size={22} color={colors.primary} />
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Adicionar item..."
+          placeholderTextColor={colors.textMuted}
+          style={styles.addInput}
+          returnKeyType="done"
+          onSubmitEditing={() => {
+            if (query.trim().length >= 2 && !exactMatch) handleCreate();
+          }}
+        />
+      </View>
+
+      {query.trim().length > 0 ? (
+        <View style={styles.suggestions}>
+          {suggestions.map((p) => (
+            <Pressable
+              key={p.id}
+              style={styles.suggestion}
+              onPress={() => {
+                addToList(p.id);
+                setQuery('');
+              }}
+            >
+              <Ionicons name="pricetag-outline" size={16} color={colors.textMuted} />
+              <Text style={styles.suggestionText}>{p.name}</Text>
+              {p.lastPrice != null ? (
+                <Text style={styles.suggestionPrice}>{formatBRL(p.lastPrice)}</Text>
+              ) : null}
+            </Pressable>
+          ))}
+          {!exactMatch && query.trim().length >= 2 ? (
+            <Pressable style={styles.suggestionCreate} onPress={handleCreate}>
+              <Ionicons name="add" size={18} color={colors.primary} />
+              <Text style={styles.suggestionCreateText}>
+                Criar “{query.trim()}” e adicionar
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+
+      <FlatList
+        data={activeList}
+        keyExtractor={(i) => i.id}
+        contentContainerStyle={{ paddingBottom: 220 }}
+        keyboardShouldPersistTaps="handled"
+        renderItem={({ item }) => (
+          <ItemRow
+            item={item}
+            onToggle={() => toggleChecked(item.id)}
+            onQty={(qty) => updateListItem(item.id, { qty })}
+            onPrice={(unitPrice) => updateListItem(item.id, { unitPrice })}
+            onRemove={() => removeListItem(item.id)}
+          />
+        )}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={styles.emptyEmoji}>📝</Text>
+            <Text style={styles.emptyTitle}>Sua lista está vazia</Text>
+            <Text style={styles.emptySubtitle}>
+              Digite acima o que precisa comprar. Itens novos ficam salvos para a próxima vez.
+            </Text>
+          </View>
+        }
+      />
+
+      {/* Rodapé com total e ação */}
+      {activeList.length > 0 ? (
+        <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
+          <View style={styles.totalRow}>
+            <View>
+              <Text style={styles.totalLabel}>No carrinho ({cartItems.length})</Text>
+              <Text style={styles.totalValue}>{formatBRL(cartTotal)}</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={styles.totalLabel}>Estimativa total</Text>
+              <Text style={styles.estimateValue}>{formatBRL(estimatedTotal)}</Text>
+            </View>
+          </View>
+          <Button title="Finalizar compra" onPress={handleFinalize} />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function ItemRow({
+  item,
+  onToggle,
+  onQty,
+  onPrice,
+  onRemove,
+}: {
+  item: ListItem;
+  onToggle: () => void;
+  onQty: (qty: number) => void;
+  onPrice: (price: number) => void;
+  onRemove: () => void;
+}) {
+  const [priceText, setPriceText] = useState(
+    item.unitPrice > 0 ? item.unitPrice.toFixed(2).replace('.', ',') : '',
+  );
+
+  return (
+    <View style={[styles.item, item.checked && styles.itemChecked]}>
+      <Pressable onPress={onToggle} hitSlop={8} style={styles.checkbox}>
+        <Ionicons
+          name={item.checked ? 'checkmark-circle' : 'ellipse-outline'}
+          size={26}
+          color={item.checked ? colors.success : colors.textMuted}
+        />
+      </Pressable>
+
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.itemName, item.checked && styles.itemNameChecked]} numberOfLines={1}>
+          {item.name}
+        </Text>
+        <View style={styles.itemControls}>
+          <View style={styles.qtyStepper}>
+            <Pressable onPress={() => onQty(Math.max(1, item.qty - 1))} hitSlop={6} style={styles.qtyBtn}>
+              <Ionicons name="remove" size={16} color={colors.text} />
+            </Pressable>
+            <Text style={styles.qtyText}>{item.qty}</Text>
+            <Pressable onPress={() => onQty(item.qty + 1)} hitSlop={6} style={styles.qtyBtn}>
+              <Ionicons name="add" size={16} color={colors.text} />
+            </Pressable>
+          </View>
+
+          <View style={styles.priceBox}>
+            <Text style={styles.priceCurrency}>R$</Text>
+            <TextInput
+              value={priceText}
+              onChangeText={(t) => {
+                setPriceText(t);
+                onPrice(parsePrice(t));
+              }}
+              placeholder="0,00"
+              placeholderTextColor={colors.textMuted}
+              style={styles.priceInput}
+              keyboardType="decimal-pad"
+            />
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.itemRight}>
+        <Text style={styles.lineTotal}>{formatBRL(item.qty * item.unitPrice)}</Text>
+        <Pressable onPress={onRemove} hitSlop={8}>
+          <Ionicons name="close" size={18} color={colors.textMuted} />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: spacing.lg },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  greeting: { fontSize: fontSize.sm, color: colors.textMuted },
+  headerTitle: { fontSize: fontSize.xxl, fontWeight: '800', color: colors.text },
+  addRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  addInput: { flex: 1, paddingVertical: spacing.md, fontSize: fontSize.md, color: colors.text },
+  suggestions: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    marginTop: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  suggestion: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  suggestionText: { flex: 1, fontSize: fontSize.md, color: colors.text },
+  suggestionPrice: { fontSize: fontSize.sm, color: colors.textMuted },
+  suggestionCreate: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.accentSoft,
+  },
+  suggestionCreateText: { fontSize: fontSize.md, color: colors.primary, fontWeight: '700' },
+  item: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  itemChecked: { backgroundColor: colors.successSoft, borderColor: colors.successSoft },
+  checkbox: { paddingRight: spacing.xs },
+  itemName: { fontSize: fontSize.md, fontWeight: '700', color: colors.text },
+  itemNameChecked: { textDecorationLine: 'line-through', color: colors.textMuted },
+  itemControls: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm },
+  qtyStepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.sm,
+  },
+  qtyBtn: { padding: spacing.sm },
+  qtyText: { minWidth: 22, textAlign: 'center', fontSize: fontSize.md, fontWeight: '700', color: colors.text },
+  priceBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+  },
+  priceCurrency: { fontSize: fontSize.sm, color: colors.textMuted, marginRight: 2 },
+  priceInput: { minWidth: 56, paddingVertical: spacing.sm, fontSize: fontSize.md, color: colors.text },
+  itemRight: { alignItems: 'flex-end', gap: spacing.sm },
+  lineTotal: { fontSize: fontSize.md, fontWeight: '800', color: colors.text },
+  empty: { alignItems: 'center', paddingVertical: spacing.xxl * 1.5, paddingHorizontal: spacing.xl },
+  emptyEmoji: { fontSize: 48, marginBottom: spacing.md },
+  emptyTitle: { fontSize: fontSize.lg, fontWeight: '700', color: colors.text },
+  emptySubtitle: {
+    fontSize: fontSize.sm,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+  },
+  footer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    gap: spacing.md,
+  },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  totalLabel: { fontSize: fontSize.xs, color: colors.textMuted },
+  totalValue: { fontSize: fontSize.xxl, fontWeight: '800', color: colors.success },
+  estimateValue: { fontSize: fontSize.lg, fontWeight: '700', color: colors.text },
+});
