@@ -15,7 +15,7 @@ function RootNavigator() {
 
   useEffect(() => {
     if (!ready) return;
-    const inApp = segments[0] === '(drawer)';
+    const inApp = segments[0] === '(tabs)';
     if (!user && inApp) {
       router.replace('/login');
     } else if (user && !inApp) {
@@ -34,7 +34,7 @@ function RootNavigator() {
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
       <Stack.Screen name="login" />
-      <Stack.Screen name="(drawer)" />
+      <Stack.Screen name="(tabs)" />
     </Stack>
   );
 }
