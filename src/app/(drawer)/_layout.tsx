@@ -34,15 +34,15 @@ export default function DrawerLayout() {
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <StatusBar style="light" />
 
-      {/* Cabeçalho navy */}
+      {/* Cabeçalho navy (menu à esquerda) */}
       <View style={[styles.header, { paddingTop: insets.top, height: 56 + insets.top }]}>
-        <View style={{ width: 40 }} />
-        <Text style={styles.title} numberOfLines={1}>
-          {titleFor(pathname)}
-        </Text>
         <Pressable onPress={() => setOpen(true)} hitSlop={10} style={styles.menuBtn}>
           <Ionicons name="menu" size={26} color={colors.textInverse} />
         </Pressable>
+        <Text style={styles.title} numberOfLines={1}>
+          {titleFor(pathname)}
+        </Text>
+        <View style={{ width: 40 }} />
       </View>
 
       {/* Conteúdo da tela atual */}
@@ -50,7 +50,7 @@ export default function DrawerLayout() {
         <Slot />
       </View>
 
-      {/* Menu suspenso (lateral direita) */}
+      {/* Menu suspenso (lateral esquerda) */}
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
           <Pressable
@@ -112,8 +112,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   title: { ...fontFamily, flex: 1, textAlign: 'center', color: colors.textInverse, fontSize: fontSize.lg, fontWeight: '800' },
-  menuBtn: { width: 40, alignItems: 'flex-end' },
-  backdrop: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
+  menuBtn: { width: 40, alignItems: 'flex-start' },
+  backdrop: { flex: 1, flexDirection: 'row', justifyContent: 'flex-start', backgroundColor: 'rgba(0,0,0,0.4)' },
   panel: {
     width: '76%',
     maxWidth: 320,

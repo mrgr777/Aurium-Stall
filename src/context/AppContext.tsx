@@ -24,6 +24,14 @@ type ProductInput = {
   price?: number | null;
 };
 
+/** Garante que o catálogo nunca fique vazio: se estiver, carrega o inicial. */
+function withSeed(data: UserData): UserData {
+  if (data.products.length === 0) {
+    return { ...data, products: makeSeedProducts() };
+  }
+  return data;
+}
+
 type AppState = {
   ready: boolean;
   user: User | null;
@@ -75,7 +83,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const found = users.find((u) => u.id === sessionId) ?? null;
         if (found) {
           setUser(found);
-          setData(await storage.loadData(found.id));
+          setData(withSeed(await storage.loadData(found.id)));
         }
       }
       setReady(true);
@@ -131,7 +139,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (found.pin !== pin) return { ok: false, error: 'PIN incorreto.' };
     await storage.saveSession(found.id);
     setUser(found);
-    setData(await storage.loadData(found.id));
+    setData(withSeed(await storage.loadData(found.id)));
     return { ok: true };
   }, []);
 
