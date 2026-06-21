@@ -1,5 +1,7 @@
+import '@/global.css';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -13,11 +15,11 @@ function RootNavigator() {
 
   useEffect(() => {
     if (!ready) return;
-    const inApp = segments[0] === '(tabs)';
+    const inApp = segments[0] === '(drawer)';
     if (!user && inApp) {
       router.replace('/login');
     } else if (user && !inApp) {
-      router.replace('/(tabs)');
+      router.replace('/lista');
     }
   }, [ready, user, segments, router]);
 
@@ -32,18 +34,20 @@ function RootNavigator() {
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
       <Stack.Screen name="login" />
-      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="(drawer)" />
     </Stack>
   );
 }
 
 export default function RootLayout() {
   return (
-    <SafeAreaProvider>
-      <AppProvider>
-        <StatusBar style="dark" />
-        <RootNavigator />
-      </AppProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <AppProvider>
+          <StatusBar style="dark" />
+          <RootNavigator />
+        </AppProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

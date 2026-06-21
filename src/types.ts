@@ -9,6 +9,14 @@ export type User = {
   createdAt: string;
 };
 
+/**
+ * Unidade de venda de um produto:
+ * - 'un'     → por unidade (ex.: 1 sabonete)
+ * - 'kg'     → por quilo (ex.: hortifruti; permite peso fracionado como 0,5 kg)
+ * - 'pacote' → fardo/pack com várias unidades (ex.: bebidas em packs de 4, 6, 12)
+ */
+export type Unit = 'un' | 'kg' | 'pacote';
+
 /** Um ponto no histórico de preços de um produto. */
 export type PricePoint = {
   price: number;
@@ -20,7 +28,10 @@ export type Product = {
   id: string;
   name: string;
   category: string;
-  /** Último preço conhecido (preenchido ao finalizar uma compra). */
+  unit: Unit;
+  /** Tamanhos de pacote disponíveis (só para unit === 'pacote'). Ex.: [4, 6, 12]. */
+  packSizes?: number[];
+  /** Último preço conhecido, por unidade de venda (por kg / por unidade / por pacote). */
   lastPrice: number | null;
   /** Histórico de preços, em ordem cronológica. */
   priceHistory: PricePoint[];
@@ -31,7 +42,12 @@ export type ListItem = {
   id: string;
   productId: string;
   name: string; // cópia do nome para exibição
+  unit: Unit;
+  /** Quantidade: nº de unidades, peso em kg, ou nº de pacotes (conforme a unit). */
   qty: number;
+  /** Tamanho do pacote escolhido (só para unit === 'pacote'). */
+  packSize?: number;
+  /** Preço por unidade de venda (por kg / por unidade / por pacote). */
   unitPrice: number;
   /** Marcado quando já está no carrinho. */
   checked: boolean;
@@ -70,3 +86,15 @@ export const CATEGORIES = [
 ] as const;
 
 export type Category = (typeof CATEGORIES)[number];
+
+/** Rótulo curto da unidade, para exibição. */
+export function unitLabel(unit: Unit): string {
+  switch (unit) {
+    case 'kg':
+      return 'kg';
+    case 'pacote':
+      return 'pacote';
+    default:
+      return 'un';
+  }
+}

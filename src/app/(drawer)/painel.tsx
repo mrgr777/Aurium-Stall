@@ -34,15 +34,10 @@ export default function PainelScreen() {
       style={{ flex: 1, backgroundColor: colors.bg }}
       contentContainerStyle={[
         styles.container,
-        { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.xxl },
+        { paddingTop: spacing.lg, paddingBottom: insets.bottom + spacing.xxl },
       ]}
     >
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>Olá, {user?.name}</Text>
-          <Text style={styles.headerTitle}>Painel</Text>
-        </View>
-      </View>
+      <Text style={styles.greeting}>Olá, {user?.name} 👋</Text>
 
       {/* Gasto no mês */}
       <Card style={styles.heroCard}>
@@ -168,9 +163,12 @@ function MoverRow({ mover, direction }: { mover: PriceMover; direction: 'up' | '
 
 const styles = StyleSheet.create({
   container: { paddingHorizontal: spacing.lg },
-  header: { marginBottom: spacing.lg },
-  greeting: { fontSize: fontSize.sm, color: colors.textMuted },
-  headerTitle: { fontSize: fontSize.xxl, fontWeight: '800', color: colors.text },
+  greeting: {
+    fontSize: fontSize.lg,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: spacing.lg,
+  },
   heroCard: { backgroundColor: colors.primary, borderColor: colors.primary },
   heroLabel: { color: colors.accentSoft, fontSize: fontSize.sm, fontWeight: '600' },
   heroValue: {

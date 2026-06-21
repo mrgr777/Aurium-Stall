@@ -12,9 +12,27 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
 import { Button } from '@/components/ui';
-import { colors, fontSize, radius, spacing } from '@/theme';
+import { colors, fontFamily, fontSize, radius, spacing } from '@/theme';
 import { formatBRL, parsePrice } from '@/lib/format';
 import type { ListItem } from '@/types';
+
+/** Texto da quantidade conforme a unidade. */
+function qtyText(item: ListItem): string {
+  if (item.unit === 'kg') {
+    return `${item.qty.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} kg`;
+  }
+  if (item.unit === 'pacote') {
+    return `${item.qty} ${item.qty > 1 ? 'pacotes' : 'pacote'}`;
+  }
+  return `${item.qty} un`;
+}
+
+/** Sufixo do preço por unidade de venda. */
+function priceSuffix(unit: ListItem['unit']): string {
+  if (unit === 'kg') return '/kg';
+  if (unit === 'pacote') return '/pac';
+  return '/un';
+}
 
 export default function ListaScreen() {
   const {
@@ -31,6 +49,13 @@ export default function ListaScreen() {
   } = useApp();
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
+
+  // Mapa para descobrir os tamanhos de pacote de cada produto.
+  const packSizesByProduct = useMemo(() => {
+    const map = new Map<string, number[] | undefined>();
+    products.forEach((p) => map.set(p.id, p.packSizes));
+    return map;
+  }, [products]);
 
   const suggestions = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -53,7 +78,7 @@ export default function ListaScreen() {
   function handleCreate() {
     const name = query.trim();
     if (name.length < 2) return;
-    addNewToList(name, 'Outros', null);
+    addNewToList({ name, category: 'Outros', unit: 'un' });
     setQuery('');
   }
 
@@ -74,12 +99,9 @@ export default function ListaScreen() {
   }
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top + spacing.md }]}>
+    <View style={[styles.screen, { paddingTop: spacing.md }]}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>Olá, {user?.name} 👋</Text>
-          <Text style={styles.headerTitle}>Lista de compras</Text>
-        </View>
+        <Text style={styles.greeting}>Olá, {user?.name} 👋</Text>
         {activeList.length > 0 ? (
           <Pressable onPress={confirmClear} hitSlop={10}>
             <Ionicons name="trash-outline" size={22} color={colors.textMuted} />
@@ -117,7 +139,10 @@ export default function ListaScreen() {
               <Ionicons name="pricetag-outline" size={16} color={colors.textMuted} />
               <Text style={styles.suggestionText}>{p.name}</Text>
               {p.lastPrice != null ? (
-                <Text style={styles.suggestionPrice}>{formatBRL(p.lastPrice)}</Text>
+                <Text style={styles.suggestionPrice}>
+                  {formatBRL(p.lastPrice)}
+                  {priceSuffix(p.unit)}
+                </Text>
               ) : null}
             </Pressable>
           ))}
@@ -140,9 +165,11 @@ export default function ListaScreen() {
         renderItem={({ item }) => (
           <ItemRow
             item={item}
+            packSizes={packSizesByProduct.get(item.productId)}
             onToggle={() => toggleChecked(item.id)}
             onQty={(qty) => updateListItem(item.id, { qty })}
             onPrice={(unitPrice) => updateListItem(item.id, { unitPrice })}
+            onPackSize={(packSize) => updateListItem(item.id, { packSize })}
             onRemove={() => removeListItem(item.id)}
           />
         )}
@@ -151,7 +178,7 @@ export default function ListaScreen() {
             <Text style={styles.emptyEmoji}>📝</Text>
             <Text style={styles.emptyTitle}>Sua lista está vazia</Text>
             <Text style={styles.emptySubtitle}>
-              Digite acima o que precisa comprar. Itens novos ficam salvos para a próxima vez.
+              Digite acima o que precisa comprar, ou pegue itens prontos na aba Produtos.
             </Text>
           </View>
         }
@@ -179,20 +206,28 @@ export default function ListaScreen() {
 
 function ItemRow({
   item,
+  packSizes,
   onToggle,
   onQty,
   onPrice,
+  onPackSize,
   onRemove,
 }: {
   item: ListItem;
+  packSizes?: number[];
   onToggle: () => void;
   onQty: (qty: number) => void;
   onPrice: (price: number) => void;
+  onPackSize: (packSize: number) => void;
   onRemove: () => void;
 }) {
   const [priceText, setPriceText] = useState(
     item.unitPrice > 0 ? item.unitPrice.toFixed(2).replace('.', ',') : '',
   );
+
+  const step = item.unit === 'kg' ? 0.5 : 1;
+  const min = item.unit === 'kg' ? 0.5 : 1;
+  const round = (n: number) => Math.round(n * 100) / 100;
 
   return (
     <View style={[styles.item, item.checked && styles.itemChecked]}>
@@ -208,13 +243,40 @@ function ItemRow({
         <Text style={[styles.itemName, item.checked && styles.itemNameChecked]} numberOfLines={1}>
           {item.name}
         </Text>
+
+        {/* Seletor de tamanho do pacote (só para bebidas/packs) */}
+        {item.unit === 'pacote' && packSizes && packSizes.length > 0 ? (
+          <View style={styles.packRow}>
+            {packSizes.map((size) => (
+              <Pressable
+                key={size}
+                onPress={() => onPackSize(size)}
+                style={[styles.packChip, item.packSize === size && styles.packChipActive]}
+              >
+                <Text
+                  style={[
+                    styles.packChipText,
+                    item.packSize === size && styles.packChipTextActive,
+                  ]}
+                >
+                  {size} un
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
         <View style={styles.itemControls}>
           <View style={styles.qtyStepper}>
-            <Pressable onPress={() => onQty(Math.max(1, item.qty - 1))} hitSlop={6} style={styles.qtyBtn}>
+            <Pressable
+              onPress={() => onQty(Math.max(min, round(item.qty - step)))}
+              hitSlop={6}
+              style={styles.qtyBtn}
+            >
               <Ionicons name="remove" size={16} color={colors.text} />
             </Pressable>
-            <Text style={styles.qtyText}>{item.qty}</Text>
-            <Pressable onPress={() => onQty(item.qty + 1)} hitSlop={6} style={styles.qtyBtn}>
+            <Text style={styles.qtyText}>{qtyText(item)}</Text>
+            <Pressable onPress={() => onQty(round(item.qty + step))} hitSlop={6} style={styles.qtyBtn}>
               <Ionicons name="add" size={16} color={colors.text} />
             </Pressable>
           </View>
@@ -232,6 +294,7 @@ function ItemRow({
               style={styles.priceInput}
               keyboardType="decimal-pad"
             />
+            <Text style={styles.priceSuffix}>{priceSuffix(item.unit)}</Text>
           </View>
         </View>
       </View>
@@ -254,8 +317,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.md,
   },
-  greeting: { fontSize: fontSize.sm, color: colors.textMuted },
-  headerTitle: { fontSize: fontSize.xxl, fontWeight: '800', color: colors.text },
+  greeting: { ...fontFamily, fontSize: fontSize.lg, fontWeight: '700', color: colors.text },
   addRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -266,7 +328,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  addInput: { flex: 1, paddingVertical: spacing.md, fontSize: fontSize.md, color: colors.text },
+  addInput: { ...fontFamily, flex: 1, paddingVertical: spacing.md, fontSize: fontSize.md, color: colors.text },
   suggestions: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,
@@ -284,8 +346,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
-  suggestionText: { flex: 1, fontSize: fontSize.md, color: colors.text },
-  suggestionPrice: { fontSize: fontSize.sm, color: colors.textMuted },
+  suggestionText: { ...fontFamily, flex: 1, fontSize: fontSize.md, color: colors.text },
+  suggestionPrice: { ...fontFamily, fontSize: fontSize.sm, color: colors.textMuted },
   suggestionCreate: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -294,7 +356,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     backgroundColor: colors.accentSoft,
   },
-  suggestionCreateText: { fontSize: fontSize.md, color: colors.primary, fontWeight: '700' },
+  suggestionCreateText: { ...fontFamily, fontSize: fontSize.md, color: colors.primary, fontWeight: '700' },
   item: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -308,8 +370,20 @@ const styles = StyleSheet.create({
   },
   itemChecked: { backgroundColor: colors.successSoft, borderColor: colors.successSoft },
   checkbox: { paddingRight: spacing.xs },
-  itemName: { fontSize: fontSize.md, fontWeight: '700', color: colors.text },
+  itemName: { ...fontFamily, fontSize: fontSize.md, fontWeight: '700', color: colors.text },
   itemNameChecked: { textDecorationLine: 'line-through', color: colors.textMuted },
+  packRow: { flexDirection: 'row', gap: spacing.xs, marginTop: spacing.sm },
+  packChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  packChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  packChipText: { ...fontFamily, fontSize: fontSize.xs, color: colors.textMuted, fontWeight: '600' },
+  packChipTextActive: { color: colors.textInverse },
   itemControls: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm },
   qtyStepper: {
     flexDirection: 'row',
@@ -318,7 +392,14 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
   },
   qtyBtn: { padding: spacing.sm },
-  qtyText: { minWidth: 22, textAlign: 'center', fontSize: fontSize.md, fontWeight: '700', color: colors.text },
+  qtyText: {
+    ...fontFamily,
+    minWidth: 56,
+    textAlign: 'center',
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+    color: colors.text,
+  },
   priceBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -326,14 +407,16 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
   },
-  priceCurrency: { fontSize: fontSize.sm, color: colors.textMuted, marginRight: 2 },
-  priceInput: { minWidth: 56, paddingVertical: spacing.sm, fontSize: fontSize.md, color: colors.text },
+  priceCurrency: { ...fontFamily, fontSize: fontSize.sm, color: colors.textMuted, marginRight: 2 },
+  priceInput: { ...fontFamily, minWidth: 50, paddingVertical: spacing.sm, fontSize: fontSize.md, color: colors.text },
+  priceSuffix: { ...fontFamily, fontSize: fontSize.xs, color: colors.textMuted, marginLeft: 2 },
   itemRight: { alignItems: 'flex-end', gap: spacing.sm },
-  lineTotal: { fontSize: fontSize.md, fontWeight: '800', color: colors.text },
+  lineTotal: { ...fontFamily, fontSize: fontSize.md, fontWeight: '800', color: colors.text },
   empty: { alignItems: 'center', paddingVertical: spacing.xxl * 1.5, paddingHorizontal: spacing.xl },
   emptyEmoji: { fontSize: 48, marginBottom: spacing.md },
-  emptyTitle: { fontSize: fontSize.lg, fontWeight: '700', color: colors.text },
+  emptyTitle: { ...fontFamily, fontSize: fontSize.lg, fontWeight: '700', color: colors.text },
   emptySubtitle: {
+    ...fontFamily,
     fontSize: fontSize.sm,
     color: colors.textMuted,
     textAlign: 'center',
@@ -352,7 +435,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  totalLabel: { fontSize: fontSize.xs, color: colors.textMuted },
-  totalValue: { fontSize: fontSize.xxl, fontWeight: '800', color: colors.success },
-  estimateValue: { fontSize: fontSize.lg, fontWeight: '700', color: colors.text },
+  totalLabel: { ...fontFamily, fontSize: fontSize.xs, color: colors.textMuted },
+  totalValue: { ...fontFamily, fontSize: fontSize.xxl, fontWeight: '800', color: colors.success },
+  estimateValue: { ...fontFamily, fontSize: fontSize.lg, fontWeight: '700', color: colors.text },
 });

@@ -1,32 +1,48 @@
 /**
  * Identidade visual do Aurium-Stall.
- * "Aurium" = ouro: paleta quente, em tons dourados, clara e acolhedora.
+ * Paleta azul-marinho (navy) + branco, com a fonte do sistema Apple (San Francisco).
  */
+import { Platform, type TextStyle } from 'react-native';
 
 export const colors = {
-  bg: '#FAF6EE',
+  bg: '#F4F6FB',
   surface: '#FFFFFF',
-  surfaceAlt: '#F3EEE2',
+  surfaceAlt: '#EEF1F8',
 
-  text: '#211D17',
-  textMuted: '#837B6E',
+  text: '#0F1E3D',
+  textMuted: '#5C6B86',
   textInverse: '#FFFFFF',
 
-  // Dourado da marca
-  primary: '#9C7410', // botões / ações principais (contraste AA com texto branco)
-  primaryDark: '#7E5D0B', // estado pressionado
-  accent: '#D4A82A', // destaques, aba ativa, barras de gráfico
-  accentSoft: '#F6EBCB', // fundos de destaque
+  // Azul-marinho da marca
+  primary: '#14274E', // navy — botões / cabeçalho / ações principais
+  primaryDark: '#0D1B38', // estado pressionado
+  accent: '#3461C9', // azul mais vivo — destaques, barras de gráfico
+  accentSoft: '#E5ECFA', // fundos de destaque
 
   // Semânticos (no contexto de preços: subiu = ruim/vermelho, caiu = bom/verde)
-  success: '#2E7D32',
-  successSoft: '#E4F1E5',
-  danger: '#C0392B',
-  dangerSoft: '#FBE7E4',
+  success: '#1E8E3E',
+  successSoft: '#E4F3E8',
+  danger: '#C62828',
+  dangerSoft: '#FBE7E6',
 
-  border: '#E9E2D4',
+  border: '#E1E7F1',
   shadow: '#000000',
 } as const;
+
+/**
+ * Fonte do sistema Apple (San Francisco / SF Pro).
+ * No iOS, 'System' já é a San Francisco. Na web e no Android usamos a
+ * pilha de fontes do sistema, que cai na San Francisco em aparelhos Apple.
+ */
+const appleStack =
+  '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, system-ui, sans-serif';
+
+export const fonts = {
+  sans: Platform.select({ ios: 'System', default: appleStack }) as string,
+};
+
+/** Aplica a fonte do app a qualquer estilo de texto. */
+export const fontFamily: TextStyle = { fontFamily: fonts.sans };
 
 export const spacing = {
   xs: 4,

@@ -12,7 +12,17 @@ import React, {
 } from 'react';
 import { uid } from '@/lib/id';
 import * as storage from '@/lib/storage';
-import type { ListItem, Product, Purchase, User, UserData } from '@/types';
+import { makeSeedProducts } from '@/lib/seed';
+import type { ListItem, Product, Purchase, Unit, User, UserData } from '@/types';
+
+/** Dados de entrada para criar um produto. */
+type ProductInput = {
+  name: string;
+  category: string;
+  unit: Unit;
+  packSizes?: number[];
+  price?: number | null;
+};
 
 type AppState = {
   ready: boolean;
@@ -31,13 +41,13 @@ type AppContextValue = AppState & {
   listUsers: () => Promise<User[]>;
 
   // Produtos (catálogo pessoal)
-  addProduct: (name: string, category: string, price?: number | null) => Product;
+  addProduct: (input: ProductInput) => Product;
   updateProduct: (id: string, patch: Partial<Omit<Product, 'id'>>) => void;
   removeProduct: (id: string) => void;
 
   // Lista de compras
   addToList: (productId: string) => void;
-  addNewToList: (name: string, category: string, price?: number | null) => void;
+  addNewToList: (input: ProductInput) => void;
   updateListItem: (id: string, patch: Partial<Omit<ListItem, 'id'>>) => void;
   removeListItem: (id: string) => void;
   toggleChecked: (id: string) => void;
@@ -102,8 +112,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
     await storage.saveUsers([...users, newUser]);
     await storage.saveSession(newUser.id);
+    // Conta nova já começa com um catálogo de produtos comuns.
+    const seeded: UserData = {
+      products: makeSeedProducts(),
+      activeList: [],
+      purchases: [],
+    };
+    await storage.saveData(newUser.id, seeded);
     setUser(newUser);
-    setData(await storage.loadData(newUser.id));
+    setData(seeded);
     return { ok: true };
   }, []);
 
@@ -125,21 +142,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ----- Produtos -----
-  const addProduct = useCallback(
-    (name: string, category: string, price: number | null = null) => {
-      const product: Product = {
-        id: uid(),
-        name: name.trim(),
-        category,
-        lastPrice: price ?? null,
-        priceHistory:
-          price != null ? [{ price, date: new Date().toISOString() }] : [],
-      };
-      setData((d) => ({ ...d, products: [...d.products, product] }));
-      return product;
-    },
-    [],
-  );
+  const addProduct = useCallback((input: ProductInput) => {
+    const price = input.price ?? null;
+    const product: Product = {
+      id: uid(),
+      name: input.name.trim(),
+      category: input.category,
+      unit: input.unit,
+      packSizes: input.packSizes,
+      lastPrice: price,
+      priceHistory: price != null ? [{ price, date: new Date().toISOString() }] : [],
+    };
+    setData((d) => ({ ...d, products: [...d.products, product] }));
+    return product;
+  }, []);
 
   const updateProduct = useCallback(
     (id: string, patch: Partial<Omit<Product, 'id'>>) => {
@@ -169,7 +185,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         id: uid(),
         productId,
         name: product.name,
+        unit: product.unit,
         qty: 1,
+        packSize: product.unit === 'pacote' ? product.packSizes?.[0] : undefined,
         unitPrice: product.lastPrice ?? 0,
         checked: false,
       };
@@ -177,34 +195,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const addNewToList = useCallback(
-    (name: string, category: string, price: number | null = null) => {
-      setData((d) => {
-        const product: Product = {
-          id: uid(),
-          name: name.trim(),
-          category,
-          lastPrice: price ?? null,
-          priceHistory:
-            price != null ? [{ price, date: new Date().toISOString() }] : [],
-        };
-        const item: ListItem = {
-          id: uid(),
-          productId: product.id,
-          name: product.name,
-          qty: 1,
-          unitPrice: price ?? 0,
-          checked: false,
-        };
-        return {
-          ...d,
-          products: [...d.products, product],
-          activeList: [...d.activeList, item],
-        };
-      });
-    },
-    [],
-  );
+  const addNewToList = useCallback((input: ProductInput) => {
+    const price = input.price ?? null;
+    setData((d) => {
+      const product: Product = {
+        id: uid(),
+        name: input.name.trim(),
+        category: input.category,
+        unit: input.unit,
+        packSizes: input.packSizes,
+        lastPrice: price,
+        priceHistory: price != null ? [{ price, date: new Date().toISOString() }] : [],
+      };
+      const item: ListItem = {
+        id: uid(),
+        productId: product.id,
+        name: product.name,
+        unit: product.unit,
+        qty: 1,
+        packSize: product.unit === 'pacote' ? product.packSizes?.[0] : undefined,
+        unitPrice: price ?? 0,
+        checked: false,
+      };
+      return {
+        ...d,
+        products: [...d.products, product],
+        activeList: [...d.activeList, item],
+      };
+    });
+  }, []);
 
   const updateListItem = useCallback(
     (id: string, patch: Partial<Omit<ListItem, 'id'>>) => {
