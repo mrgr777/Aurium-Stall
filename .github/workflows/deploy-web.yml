@@ -1,0 +1,44 @@
+name: Publicar app web (GitHub Pages)
+
+# Monta a versão web do Aurium-Stall e publica no GitHub Pages.
+# Roda automaticamente a cada envio para a branch de desenvolvimento,
+# e também pode ser disparado manualmente na aba "Actions" do GitHub.
+on:
+  push:
+    branches:
+      - claude/ios-app-development-hrcy5j
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+
+      - name: Preparar o Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Gerar a versão web
+        run: npx expo export --platform web
+
+      - name: Fallback para rotas (SPA)
+        run: cp dist/index.html dist/404.html
+
+      - name: Publicar no GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
