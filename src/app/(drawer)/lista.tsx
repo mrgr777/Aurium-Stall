@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '@/context/AppContext';
 import { Button } from '@/components/ui';
@@ -48,6 +49,7 @@ export default function ListaScreen() {
     clearList,
   } = useApp();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [query, setQuery] = useState('');
 
   // Mapa para descobrir os tamanhos de pacote de cada produto.
@@ -178,8 +180,13 @@ export default function ListaScreen() {
             <Text style={styles.emptyEmoji}>📝</Text>
             <Text style={styles.emptyTitle}>Sua lista está vazia</Text>
             <Text style={styles.emptySubtitle}>
-              Digite acima o que precisa comprar, ou pegue itens prontos na aba Produtos.
+              Escolha produtos prontos da lista, ou digite acima o que precisa comprar.
             </Text>
+            <Button
+              title="🛒  Escolher produtos"
+              onPress={() => router.push('/produtos')}
+              style={{ marginTop: spacing.lg, alignSelf: 'stretch' }}
+            />
           </View>
         }
       />

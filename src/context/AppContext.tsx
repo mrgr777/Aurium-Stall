@@ -52,6 +52,8 @@ type AppContextValue = AppState & {
   addProduct: (input: ProductInput) => Product;
   updateProduct: (id: string, patch: Partial<Omit<Product, 'id'>>) => void;
   removeProduct: (id: string) => void;
+  /** Repõe os produtos comuns que ainda não estão no catálogo. */
+  restoreSeed: () => void;
 
   // Lista de compras
   addToList: (productId: string) => void;
@@ -181,6 +183,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       products: d.products.filter((p) => p.id !== id),
       activeList: d.activeList.filter((i) => i.productId !== id),
     }));
+  }, []);
+
+  const restoreSeed = useCallback(() => {
+    setData((d) => {
+      const existing = new Set(d.products.map((p) => p.name.toLowerCase()));
+      const toAdd = makeSeedProducts().filter((p) => !existing.has(p.name.toLowerCase()));
+      return { ...d, products: [...d.products, ...toAdd] };
+    });
   }, []);
 
   // ----- Lista de compras -----
@@ -322,6 +332,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addProduct,
       updateProduct,
       removeProduct,
+      restoreSeed,
       addToList,
       addNewToList,
       updateListItem,
@@ -342,6 +353,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addProduct,
       updateProduct,
       removeProduct,
+      restoreSeed,
       addToList,
       addNewToList,
       updateListItem,
